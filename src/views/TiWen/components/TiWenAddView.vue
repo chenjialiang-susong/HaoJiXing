@@ -1,7 +1,231 @@
 <template>
-  <div>题问项添加</div>
+  <div class="tiwen-add">
+    <div class="operate">
+      <el-button type="primary" @click="queryTiwen">表格刷新</el-button>
+      <el-button type="primary" @click="openTiwenAddDialog">添加分类</el-button>
+    </div>
+    <div class="tiwen-list">
+      <el-table :data="state.tiwenList" style="width: 100%" border stripe>
+        <el-table-column prop="CATEGORY_NAME" label="分类名称" />
+        <el-table-column prop="QUESTION" label="问题描述" />
+        <el-table-column prop="ANSWER" label="答案" />
+        <el-table-column prop="CREATE_TIME" label="创建时间" />
+        <el-table-column prop="IS_EFFECTIVE" label="是否生效" />
+        <el-table-column prop="IS_MASTERED" label="是否掌握" />
+      </el-table>
+    </div>
+    <el-dialog
+      v-if="showAddTiwen"
+      v-model="showAddTiwen"
+      title="Shipping address"
+    >
+      <el-form
+        ref="ruleFormRef"
+        :model="form"
+        :rules="rules"
+        status-icon
+        label-width="120px"
+        class="demo-ruleForm"
+      >
+        <el-form-item
+          label="分类名称"
+          :label-width="formLabelWidth"
+          prop="categoryId"
+          clearable
+        >
+          <!-- <el-input v-model="form.categoryName" autocomplete="off" /> -->
+          <el-select
+            ref="selectRef"
+            @change="onSelected"
+            v-model="form.categoryId"
+            placeholder="请选择分类"
+          >
+            <el-option
+              v-for="item in options"
+              :key="item.value"
+              :label="item.value"
+              :value="item.label"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item
+          label="问题描述"
+          :label-width="formLabelWidth"
+          prop="question"
+          clearable
+        >
+          <el-input v-model="form.question" autocomplete="off" />
+        </el-form-item>
+        <el-form-item
+          label="答案"
+          :label-width="formLabelWidth"
+          prop="answer"
+          clearable
+        >
+          <el-input v-model="form.answer" autocomplete="off" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showAddTiwen = false">取消</el-button>
+          <el-button type="primary" @click="confirm(ruleFormRef)">
+            确认
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { addTiWen, queryAllTiWen } from "@/api/tiWen";
+import { queryAllCategory } from "@/api/category";
+import { onMounted, reactive, ref } from "vue";
+import type { FormInstance, FormRules } from "element-plus";
+import moment from "moment";
+const formLabelWidth = "140px";
+const ruleFormRef = ref<FormInstance>();
+const selectRef = ref();
+const showAddTiwen = ref(false);
+const rules = reactive<FormRules>({
+  categoryId: [{ required: true, message: "请选择分类", trigger: "change" }],
+  question: [{ required: true, message: "请输入题问项名称", trigger: "blur" }],
+  answer: [{ required: true, message: "请输入答案", trigger: "blur" }],
+});
+interface CateModel {
+  ID: number;
+  NAME: string;
+  COUNT: number;
+  CREATE_TIME: string;
+  STUDY_LINK: string;
+  PRIORITY: number;
+  IS_EFFECTIVE: string;
+  [index: string]: any;
+}
+interface TiwenModel {
+  CATEGORY_NAME: string;
+  CATEGORY_ID: number;
+  QUESTION: string;
+  ANSWER: string;
+  CREATE_TIME: string;
+  IS_MASTERED: string;
+  IS_EFFECTIVE: string;
+  [index: string]: any;
+}
+interface Form {
+  categoryId: number | undefined;
+  question: string;
+  answer: string;
+}
+const form = reactive<Form>({
+  categoryId: undefined,
+  question: "",
+  answer: "",
+});
+const state = reactive({
+  tiwenList: [],
+});
+const onSelected = (val: any) => {
+  console.log(selectRef.value.selected);
+};
+const queryTiwen = () => {
+  queryAllTiWen()
+    .then((res: any) => {
+      if (res.errorCode === 1) {
+        res.data.forEach((element: TiwenModel) => {
+          element.IS_EFFECTIVE = element.IS_EFFECTIVE === "1" ? "有效" : "失效";
+          element.IS_MASTERED =
+            element.IS_MASTERED === "1" ? "已掌握" : "尚未掌握";
+        });
+        state.tiwenList = res.data;
+      } else {
+        state.tiwenList = [];
+      }
+    })
+    .catch((err) => {
+      state.tiwenList = [];
+      throw new Error(err);
+    });
+};
+onMounted(() => {
+  queryTiwen();
+});
+interface ListItem {
+  value: string;
+  label: number;
+}
 
-<style scoped></style>
+const options = ref<ListItem[]>([]);
+const loading = ref(false);
+const queryCategory = () => {
+  queryAllCategory()
+    .then((res: any) => {
+      loading.value = false;
+      if (res.errorCode === 1) {
+        res.data.forEach((element: CateModel) => {
+          const it: ListItem = {
+            value: element.NAME,
+            label: element.ID,
+          };
+          options.value.push(it);
+        });
+      } else {
+        options.value = [];
+      }
+    })
+    .catch((err) => {
+      loading.value = false;
+      options.value = [];
+      throw new Error(err);
+    });
+};
+onMounted(() => {
+  queryCategory();
+});
+
+const confirm = async (formEl: FormInstance | undefined) => {
+  console.log("form.categoryId", form.categoryId);
+  if (!formEl) return;
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      showAddTiwen.value = false;
+      const param = {
+        categoryId: form.categoryId,
+        categoryName: selectRef.value.selected.currentLabel,
+        question: form.question,
+        answer: form.answer,
+        createTime: moment().format("YYYY年MM月DD日 hh:mm:ss"),
+      };
+      addTiWen(param)
+        .then((res: any) => {
+          if (res.errorCode === 1) {
+            queryTiwen();
+          }
+        })
+        .catch((err) => {
+          throw new Error(err);
+        });
+    } else {
+      console.log("error submit!", fields);
+    }
+  });
+};
+const openTiwenAddDialog = () => {
+  form.question = "";
+  form.answer = "";
+  form.categoryId = undefined;
+  showAddTiwen.value = true;
+};
+</script>
+
+<style scoped lang="less">
+.tiwen-add {
+  .operate {
+    padding: 8px;
+    border-bottom: gray 2px solid;
+  }
+  .tiwen-list {
+    padding: 24px;
+  }
+}
+</style>
