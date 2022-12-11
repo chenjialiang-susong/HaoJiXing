@@ -24,9 +24,8 @@
 
 <script setup lang="ts">
 import _ from "lodash";
-import { useRouter, useRoute } from "vue-router";
+import { useRouter } from "vue-router";
 const router = useRouter();
-const route = useRoute();
 
 const menus = _.cloneDeep(router.options.routes).filter((v) => {
   return v.meta?.menu;
