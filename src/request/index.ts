@@ -42,7 +42,7 @@ service.interceptors.request.use(
 
 service.interceptors.response.use(
   function (response) {
-    console.log(response);
+    // console.log(response);
 
     // 2xx 范围内的状态码都会触发该函数。
 
