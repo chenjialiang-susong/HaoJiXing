@@ -8,7 +8,23 @@
       <el-table :data="state.tiwenList" style="width: 100%" border stripe>
         <el-table-column prop="CATEGORY_NAME" label="分类名称" />
         <el-table-column prop="QUESTION" label="问题描述" />
-        <el-table-column prop="ANSWER" label="答案" />
+        <el-table-column prop="ANSWER" label="答案">
+          <template #default="scope">
+            <el-popover
+              effect="light"
+              trigger="hover"
+              placement="top"
+              width="auto"
+            >
+              <template #default>
+                <div>{{ scope.row.ANSWER }}</div>
+              </template>
+              <template #reference>
+                <el-tag>查看答案</el-tag>
+              </template>
+            </el-popover>
+          </template>
+        </el-table-column>
         <el-table-column prop="CREATE_TIME" label="创建时间" />
         <el-table-column prop="IS_EFFECTIVE" label="是否生效" />
         <el-table-column prop="IS_MASTERED" label="是否掌握" />
@@ -18,6 +34,9 @@
       v-if="showAddTiwen"
       v-model="showAddTiwen"
       title="Shipping address"
+      :align-center="false"
+      fullscreen
+      draggable
     >
       <el-form
         ref="ruleFormRef"
@@ -27,52 +46,62 @@
         label-width="120px"
         class="demo-ruleForm"
       >
-        <el-form-item
-          label="分类名称"
-          :label-width="formLabelWidth"
-          prop="categoryId"
-          clearable
-        >
-          <!-- <el-input v-model="form.categoryName" autocomplete="off" /> -->
-          <el-select
-            ref="selectRef"
-            @change="onSelected"
-            v-model="form.categoryId"
-            placeholder="请选择分类"
-          >
-            <el-option
-              v-for="item in options"
-              :key="item.value"
-              :label="item.value"
-              :value="item.label"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item
-          label="问题描述"
-          :label-width="formLabelWidth"
-          prop="question"
-          clearable
-        >
-          <el-input v-model="form.question" autocomplete="off" />
-        </el-form-item>
-        <el-form-item
-          label="答案"
-          :label-width="formLabelWidth"
-          prop="answer"
-          clearable
-        >
-          <el-input v-model="form.answer" autocomplete="off" />
-        </el-form-item>
+        <el-row>
+          <el-col :span="12">
+            <el-form-item
+              label="分类名称"
+              :label-width="formLabelWidth"
+              prop="categoryId"
+              clearable
+            >
+              <el-select
+                ref="selectRef"
+                @change="onSelected"
+                v-model="form.categoryId"
+                placeholder="请选择分类"
+              >
+                <el-option
+                  v-for="item in options"
+                  :key="item.value"
+                  :label="item.value"
+                  :value="item.label"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              label="问题描述"
+              :label-width="formLabelWidth"
+              prop="question"
+              clearable
+            >
+              <el-input v-model="form.question" autocomplete="off" />
+            </el-form-item>
+            <el-form-item
+              label="答案"
+              :label-width="formLabelWidth"
+              prop="answer"
+              clearable
+            >
+              <el-input
+                type="textarea"
+                v-model="form.answer"
+                autocomplete="off"
+                @input="answerChanged"
+                rows="10"
+              />
+            </el-form-item>
+            <span class="dialog-footer">
+              <el-button @click="showAddTiwen = false">取消</el-button>
+              <el-button type="primary" @click="confirm(ruleFormRef)">
+                确认
+              </el-button>
+            </span>
+          </el-col>
+          <el-col :span="12" class="markdown-area">
+            <div v-html="markdownToHtml" class="markdown-body"></div>
+          </el-col>
+        </el-row>
       </el-form>
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showAddTiwen = false">取消</el-button>
-          <el-button type="primary" @click="confirm(ruleFormRef)">
-            确认
-          </el-button>
-        </span>
-      </template>
     </el-dialog>
   </div>
 </template>
@@ -80,13 +109,28 @@
 <script setup lang="ts">
 import { addTiWen, queryAllTiWen } from "@/api/tiWen";
 import { queryAllCategory } from "@/api/category";
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref, shallowRef } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
 import moment from "moment";
+import { marked } from "marked";
+import hljs from "highlight.js";
+import "highlight.js/styles/foundation.css";
+const render = new marked.Renderer();
+marked.setOptions({
+  renderer: render, // 这是必填项
+  gfm: true, // 启动类似于Github样式的Markdown语法
+  pedantic: false, // 只解析符合Markdwon定义的，不修正Markdown的错误
+  sanitize: false, // 原始输出，忽略HTML标签（关闭后，可直接渲染HTML标签）
+
+  // 高亮的语法规范
+  highlight: (code, lang) => hljs.highlight(code, { language: lang }).value,
+});
+
 const formLabelWidth = "140px";
 const ruleFormRef = ref<FormInstance>();
 const selectRef = ref();
 const showAddTiwen = ref(false);
+
 const rules = reactive<FormRules>({
   categoryId: [{ required: true, message: "请选择分类", trigger: "change" }],
   question: [{ required: true, message: "请输入题问项名称", trigger: "blur" }],
@@ -125,6 +169,12 @@ const form = reactive<Form>({
 const state = reactive({
   tiwenList: [],
 });
+const markdownToHtml = shallowRef("");
+markdownToHtml.value = marked(form.answer);
+
+const answerChanged = (value: string) => {
+  markdownToHtml.value = marked(value);
+};
 const onSelected = (val: any) => {
   console.log(selectRef.value.selected);
 };
@@ -226,6 +276,12 @@ const openTiwenAddDialog = () => {
   }
   .tiwen-list {
     padding: 24px;
+  }
+  .markdown-area {
+    padding: 24px;
+    background-color: black;
+    overflow: auto;
+    height: 680px;
   }
 }
 </style>
