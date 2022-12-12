@@ -28,11 +28,115 @@
         <el-table-column prop="CREATE_TIME" label="创建时间" />
         <el-table-column prop="IS_EFFECTIVE" label="是否生效" />
         <el-table-column prop="IS_MASTERED" label="是否掌握" />
+        <el-table-column fixed="right" label="Operations" width="120">
+          <template #default="scope">
+            <el-button link type="primary" size="small" @click="openEditTiwen"
+              >编辑</el-button
+            >
+            <el-button
+              link
+              type="primary"
+              size="small"
+              @click="openDeleteTiwen(scope.row)"
+              >删除</el-button
+            >
+          </template>
+        </el-table-column>
       </el-table>
     </div>
+    <!-- 新增 题问项弹窗  全屏 -->
     <el-dialog
       v-if="showAddTiwen"
       v-model="showAddTiwen"
+      title="Shipping address"
+      :align-center="false"
+      fullscreen
+      draggable
+    >
+      <el-form
+        ref="ruleFormRef"
+        :model="form"
+        :rules="rules"
+        status-icon
+        label-width="120px"
+        class="demo-ruleForm"
+      >
+        <el-row>
+          <el-col :span="12">
+            <el-form-item
+              label="分类名称"
+              :label-width="formLabelWidth"
+              prop="categoryId"
+              clearable
+            >
+              <el-select
+                ref="selectRef"
+                @change="onSelected"
+                v-model="form.categoryId"
+                placeholder="请选择分类"
+              >
+                <el-option
+                  v-for="item in options"
+                  :key="item.value"
+                  :label="item.value"
+                  :value="item.label"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              label="问题描述"
+              :label-width="formLabelWidth"
+              prop="question"
+              clearable
+            >
+              <el-input v-model="form.question" autocomplete="off" />
+            </el-form-item>
+            <el-form-item
+              label="答案"
+              :label-width="formLabelWidth"
+              prop="answer"
+              clearable
+            >
+              <el-input
+                type="textarea"
+                v-model="form.answer"
+                autocomplete="off"
+                @input="answerChanged"
+                rows="10"
+              />
+            </el-form-item>
+            <span class="dialog-footer">
+              <el-button @click="showAddTiwen = false">取消</el-button>
+              <el-button type="primary" @click="confirm(ruleFormRef)">
+                确认
+              </el-button>
+            </span>
+          </el-col>
+          <el-col :span="12" class="markdown-area">
+            <div v-html="markdownToHtml" class="markdown-body"></div>
+          </el-col>
+        </el-row>
+      </el-form>
+    </el-dialog>
+    <!-- 删除 题问项弹窗 -->
+    <el-dialog
+      v-if="showDelTiwen"
+      v-model="showDelTiwen"
+      title="Tips"
+      width="30%"
+    >
+      <span>确认删除该条问题吗？</span>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showDelTiwen = false">取消</el-button>
+          <el-button type="primary" @click="delAddTiwenFun"> 确认 </el-button>
+        </span>
+      </template>
+    </el-dialog>
+    <!-- 编辑 题问项弹窗  全屏 -->
+    <el-dialog
+      v-if="showEditTiwen"
+      v-model="showEditTiwen"
       title="Shipping address"
       :align-center="false"
       fullscreen
@@ -107,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import { addTiWen, queryAllTiWen } from "@/api/tiWen";
+import { addTiWen, queryAllTiWen, deleteTiWen } from "@/api/tiWen";
 import { queryAllCategory } from "@/api/category";
 import { onMounted, reactive, ref, shallowRef } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
@@ -130,6 +234,8 @@ const formLabelWidth = "140px";
 const ruleFormRef = ref<FormInstance>();
 const selectRef = ref();
 const showAddTiwen = ref(false);
+const showDelTiwen = ref(false);
+const showEditTiwen = ref(false);
 
 const rules = reactive<FormRules>({
   categoryId: [{ required: true, message: "请选择分类", trigger: "change" }],
@@ -147,13 +253,14 @@ interface CateModel {
   [index: string]: any;
 }
 interface TiwenModel {
-  CATEGORY_NAME: string;
-  CATEGORY_ID: number;
-  QUESTION: string;
-  ANSWER: string;
-  CREATE_TIME: string;
-  IS_MASTERED: string;
-  IS_EFFECTIVE: string;
+  ID?: number;
+  CATEGORY_NAME?: string;
+  CATEGORY_ID?: number;
+  QUESTION?: string;
+  ANSWER?: string;
+  CREATE_TIME?: string;
+  IS_MASTERED?: string;
+  IS_EFFECTIVE?: string;
   [index: string]: any;
 }
 interface Form {
@@ -168,6 +275,9 @@ const form = reactive<Form>({
 });
 const state = reactive({
   tiwenList: [],
+});
+const curDeleteTiwen: TiwenModel = reactive({
+  ID: 0,
 });
 const markdownToHtml = shallowRef("");
 markdownToHtml.value = marked(form.answer);
@@ -194,6 +304,32 @@ const queryTiwen = () => {
     })
     .catch((err) => {
       state.tiwenList = [];
+      throw new Error(err);
+    });
+};
+const openEditTiwen = () => {
+  showEditTiwen.value = true;
+};
+const openDeleteTiwen = (curDelTiwen: TiwenModel) => {
+  curDeleteTiwen.ID = curDelTiwen.ID;
+  showDelTiwen.value = true;
+};
+const delAddTiwenFun = () => {
+  const param = {
+    id: curDeleteTiwen.ID,
+  };
+  deleteTiWen(param)
+    .then((res: any) => {
+      showDelTiwen.value = false;
+      if (res.errorCode === 1) {
+        queryTiwen();
+      } else {
+        // queryTiwen();
+        // todo
+      }
+    })
+    .catch((err) => {
+      showDelTiwen.value = false;
       throw new Error(err);
     });
 };
