@@ -2,7 +2,9 @@
   <div class="tiwen-add">
     <div class="operate">
       <el-button type="primary" @click="queryTiwen">表格刷新</el-button>
-      <el-button type="primary" @click="openTiwenAddDialog">添加分类</el-button>
+      <el-button type="primary" @click="openTiwenAddDialog"
+        >添加题问项</el-button
+      >
     </div>
     <div class="tiwen-list">
       <el-table :data="state.tiwenList" style="width: 100%" border stripe>
@@ -30,7 +32,11 @@
         <el-table-column prop="IS_MASTERED" label="是否掌握" />
         <el-table-column fixed="right" label="Operations" width="120">
           <template #default="scope">
-            <el-button link type="primary" size="small" @click="openEditTiwen"
+            <el-button
+              link
+              type="primary"
+              size="small"
+              @click="openEditTiwen(scope.row)"
               >编辑</el-button
             >
             <el-button
@@ -129,7 +135,7 @@
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showDelTiwen = false">取消</el-button>
-          <el-button type="primary" @click="delAddTiwenFun"> 确认 </el-button>
+          <el-button type="primary" @click="delTiwenFun"> 确认 </el-button>
         </span>
       </template>
     </el-dialog>
@@ -137,31 +143,28 @@
     <el-dialog
       v-if="showEditTiwen"
       v-model="showEditTiwen"
-      title="Shipping address"
+      title="编辑题问项"
       :align-center="false"
       fullscreen
-      draggable
     >
       <el-form
-        ref="ruleFormRef"
-        :model="form"
-        :rules="rules"
+        ref="ruleFormEditRef"
+        :model="curEditTiwen"
+        :rules="rulesEdit"
         status-icon
         label-width="120px"
-        class="demo-ruleForm"
       >
         <el-row>
           <el-col :span="12">
             <el-form-item
               label="分类名称"
               :label-width="formLabelWidth"
-              prop="categoryId"
               clearable
             >
               <el-select
-                ref="selectRef"
-                @change="onSelected"
-                v-model="form.categoryId"
+                ref="selectEditRef"
+                @change="onSelectedEdit"
+                v-model="curEditTiwen.CATEGORY_ID"
                 placeholder="请选择分类"
               >
                 <el-option
@@ -172,31 +175,43 @@
                 />
               </el-select>
             </el-form-item>
+            <el-form-item label="是否生效" :label-width="formLabelWidth">
+              <el-radio-group v-model="curEditTiwen.IS_EFFECTIVE" class="ml-4">
+                <el-radio label="1" size="large">生效</el-radio>
+                <el-radio label="0" size="large">无效</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="是否掌握" :label-width="formLabelWidth">
+              <el-radio-group v-model="curEditTiwen.IS_MASTERED" class="ml-4">
+                <el-radio label="1" size="large">已掌握</el-radio>
+                <el-radio label="0" size="large">未掌握</el-radio>
+              </el-radio-group>
+            </el-form-item>
             <el-form-item
               label="问题描述"
               :label-width="formLabelWidth"
-              prop="question"
+              prop="QUESTION"
               clearable
             >
-              <el-input v-model="form.question" autocomplete="off" />
+              <el-input v-model="curEditTiwen.QUESTION" autocomplete="off" />
             </el-form-item>
             <el-form-item
               label="答案"
               :label-width="formLabelWidth"
-              prop="answer"
+              prop="QUESTION"
               clearable
             >
               <el-input
                 type="textarea"
-                v-model="form.answer"
+                v-model="curEditTiwen.ANSWER"
                 autocomplete="off"
                 @input="answerChanged"
                 rows="10"
               />
             </el-form-item>
             <span class="dialog-footer">
-              <el-button @click="showAddTiwen = false">取消</el-button>
-              <el-button type="primary" @click="confirm(ruleFormRef)">
+              <el-button @click="showEditTiwen = false">取消</el-button>
+              <el-button type="primary" @click="confirmEdit(ruleFormEditRef)">
                 确认
               </el-button>
             </span>
@@ -211,7 +226,7 @@
 </template>
 
 <script setup lang="ts">
-import { addTiWen, queryAllTiWen, deleteTiWen } from "@/api/tiWen";
+import { addTiWen, queryAllTiWen, deleteTiWen, changeTiWen } from "@/api/tiWen";
 import { queryAllCategory } from "@/api/category";
 import { onMounted, reactive, ref, shallowRef } from "vue";
 import type { FormInstance, FormRules } from "element-plus";
@@ -232,7 +247,9 @@ marked.setOptions({
 
 const formLabelWidth = "140px";
 const ruleFormRef = ref<FormInstance>();
+const ruleFormEditRef = ref<FormInstance>();
 const selectRef = ref();
+const selectEditRef = ref();
 const showAddTiwen = ref(false);
 const showDelTiwen = ref(false);
 const showEditTiwen = ref(false);
@@ -241,6 +258,10 @@ const rules = reactive<FormRules>({
   categoryId: [{ required: true, message: "请选择分类", trigger: "change" }],
   question: [{ required: true, message: "请输入题问项名称", trigger: "blur" }],
   answer: [{ required: true, message: "请输入答案", trigger: "blur" }],
+});
+const rulesEdit = reactive<FormRules>({
+  QUESTION: [{ required: true, message: "请输入题问项名称", trigger: "blur" }],
+  ANSWER: [{ required: true, message: "请输入答案", trigger: "blur" }],
 });
 interface CateModel {
   ID: number;
@@ -279,6 +300,9 @@ const state = reactive({
 const curDeleteTiwen: TiwenModel = reactive({
   ID: 0,
 });
+const curEditTiwen: TiwenModel = reactive({
+  ID: 0,
+});
 const markdownToHtml = shallowRef("");
 markdownToHtml.value = marked(form.answer);
 
@@ -288,14 +312,19 @@ const answerChanged = (value: string) => {
 const onSelected = (val: any) => {
   console.log(selectRef.value.selected);
 };
+const onSelectedEdit = (val: any) => {
+  curEditTiwen.CATEGORY_ID;
+  console.log(selectRef.value.selected);
+};
+
 const queryTiwen = () => {
   queryAllTiWen()
     .then((res: any) => {
       if (res.errorCode === 1) {
         res.data.forEach((element: TiwenModel) => {
-          element.IS_EFFECTIVE = element.IS_EFFECTIVE === "1" ? "有效" : "失效";
-          element.IS_MASTERED =
-            element.IS_MASTERED === "1" ? "已掌握" : "尚未掌握";
+          // element.IS_EFFECTIVE = element.IS_EFFECTIVE === "1" ? "有效" : "失效";
+          // element.IS_MASTERED =
+          //   element.IS_MASTERED === "1" ? "已掌握" : "尚未掌握";
         });
         state.tiwenList = res.data;
       } else {
@@ -307,14 +336,21 @@ const queryTiwen = () => {
       throw new Error(err);
     });
 };
-const openEditTiwen = () => {
+const openEditTiwen = (curEditItemTiwen: TiwenModel) => {
+  curEditTiwen.ID = curEditItemTiwen.ID;
+  curEditTiwen.CATEGORY_ID = curEditItemTiwen.CATEGORY_ID;
+  curEditTiwen.CATEGORY_NAME = curEditItemTiwen.CATEGORY_NAME;
+  curEditTiwen.QUESTION = curEditItemTiwen.QUESTION;
+  curEditTiwen.ANSWER = curEditItemTiwen.ANSWER;
+  curEditTiwen.IS_EFFECTIVE = curEditItemTiwen.IS_EFFECTIVE;
+  curEditTiwen.IS_MASTERED = curEditItemTiwen.IS_MASTERED;
   showEditTiwen.value = true;
 };
 const openDeleteTiwen = (curDelTiwen: TiwenModel) => {
   curDeleteTiwen.ID = curDelTiwen.ID;
   showDelTiwen.value = true;
 };
-const delAddTiwenFun = () => {
+const delTiwenFun = () => {
   const param = {
     id: curDeleteTiwen.ID,
   };
@@ -383,6 +419,37 @@ const confirm = async (formEl: FormInstance | undefined) => {
         createTime: moment().format("YYYY年MM月DD日 hh:mm:ss"),
       };
       addTiWen(param)
+        .then((res: any) => {
+          if (res.errorCode === 1) {
+            queryTiwen();
+          }
+        })
+        .catch((err) => {
+          throw new Error(err);
+        });
+    } else {
+      console.log("error submit!", fields);
+    }
+  });
+};
+const confirmEdit = async (formEl: FormInstance | undefined) => {
+  if (!formEl) return;
+  await formEl.validate((valid, fields) => {
+    if (valid) {
+      showEditTiwen.value = false;
+      debugger;
+      const param = {
+        categoryId: selectEditRef.value.selected.value,
+        categoryName: selectEditRef.value.selected.currentLabel,
+        // categoryId: curEditTiwen.CATEGORY_ID,
+        // categoryName: curEditTiwen.CATEGORY_NAME,
+        question: curEditTiwen.QUESTION,
+        answer: curEditTiwen.ANSWER,
+        isEffective: curEditTiwen.IS_EFFECTIVE,
+        isMastered: curEditTiwen.IS_MASTERED,
+        id: curEditTiwen.ID,
+      };
+      changeTiWen(param)
         .then((res: any) => {
           if (res.errorCode === 1) {
             queryTiwen();
