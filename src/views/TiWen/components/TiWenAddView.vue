@@ -438,7 +438,6 @@ const confirmEdit = async (formEl: FormInstance | undefined) => {
   await formEl.validate((valid, fields) => {
     if (valid) {
       showEditTiwen.value = false;
-      debugger;
       const param = {
         categoryId: selectEditRef.value.selected.value,
         categoryName: selectEditRef.value.selected.currentLabel,
