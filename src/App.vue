@@ -15,7 +15,7 @@ import menuContent from "@/components/menu.vue";
   </el-row>
 </template>
 
-<style scoped lang="less">
+<style lang="less">
 @import "@/assets/style/common.less";
 #app {
   height: 100vh;
