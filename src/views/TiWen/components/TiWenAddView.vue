@@ -327,7 +327,7 @@ const queryTiwen = () => {
           // element.IS_MASTERED =
           //   element.IS_MASTERED === "1" ? "已掌握" : "尚未掌握";
         });
-        state.tiwenList = res.data;
+        state.tiwenList = res.data.reverse();
       } else {
         state.tiwenList = [];
       }
