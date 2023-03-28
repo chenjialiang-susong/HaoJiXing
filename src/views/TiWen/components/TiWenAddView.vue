@@ -1,4 +1,5 @@
 <template>
+  <!-- 题问项管理 -->
   <div class="tiwen-add">
     <div class="operate">
       <el-button type="primary" @click="queryTiwen">表格刷新</el-button>
@@ -473,6 +474,7 @@ const openTiwenAddDialog = () => {
 
 <style scoped lang="less">
 .tiwen-add {
+  padding: 24px;
   .operate {
     padding: 8px;
     border-bottom: gray 2px solid;
